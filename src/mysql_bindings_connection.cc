@@ -160,6 +160,8 @@ bool MysqlConnection::Connect(const char* hostname,
         return false;
     }
 
+    mysql_options(this->_conn, MYSQL_OPT_RECONNECT, "1"); // a hack.
+
     bool unsuccessful = !mysql_real_connect(this->_conn,
                             hostname,
                             user,
@@ -167,7 +169,7 @@ bool MysqlConnection::Connect(const char* hostname,
                             dbname,
                             port,
                             socket,
-                            flags);
+                            flags | CLIENT_MULTI_STATEMENTS ); // a hack!
 
     if (unsuccessful) {
         this->connect_errno = mysql_errno(this->_conn);
@@ -1099,7 +1101,7 @@ int MysqlConnection::EIO_Query(eio_req *req) {
         return 0;
     }
 
-    MYSQLCONN_DISABLE_MQ;
+    MYSQLCONN_DISABLE_MQ; // a hack!
 
     pthread_mutex_lock(&conn->query_lock);
     int r = mysql_query(conn->_conn, query_req->query);
@@ -1133,6 +1135,14 @@ int MysqlConnection::EIO_Query(eio_req *req) {
                 req->result = 1;
             }
         }
+
+        while(mysql_more_results(conn->_conn)) 				// hack for multi statements;
+        {													// hack for multi statements;
+            mysql_next_result(conn->_conn);					// hack for multi statements;
+            mysql_free_result(my_result);					// hack for multi statements;
+            my_result = mysql_use_result(conn->_conn);		// hack for multi statements;
+        }
+
     }
     pthread_mutex_unlock(&conn->query_lock);
     return 0;
